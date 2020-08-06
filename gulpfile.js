@@ -9,15 +9,20 @@ const postcss = require("gulp-postcss");
 const autoprefixer = require("autoprefixer");
 const cssnano = require("cssnano");
 
-const files = {
+const srcFiles = {
+  pathPug: "app/index.pug",
   pathSCSS: "app/scss/**/*.scss",
   pathJS: "app/js/**/*.js",
-  pathPug: "app/index.pug",
 };
 
-// Compiles index.pug into index.html
-function compilePug() {
-  return src(files.pathPug)
+const destFolders = {
+  readable: "dist",
+  minified: "dist-minified",
+};
+
+// Compiles index.pug into readable index.html
+function compileToReadableHTML() {
+  return src(srcFiles.pathPug)
     .pipe(
       pug({
         pretty: true,
@@ -26,32 +31,67 @@ function compilePug() {
     .pipe(dest("dist"));
 }
 
-// Compiles style.scss into style.css
-function compileSCSS() {
-  return src(files.pathSCSS)
+// Compiles index.pug into minified index.html
+function compileToMinifiedHTML() {
+  return src(srcFiles.pathPug).pipe(pug()).pipe(dest(destFolders.minified));
+}
+
+// Compiles style.scss into readable style.css
+function compileToReadableCSS() {
+  return src(srcFiles.pathSCSS)
+    .pipe(sourcemaps.init())
+    .pipe(sass({ outputStyle: "expanded" }))
+    .pipe(sourcemaps.write("."))
+    .pipe(dest(destFolders.readable));
+}
+
+// Compiles style.scss into minified style.css
+function compileToMinifiedCSS() {
+  return src(srcFiles.pathSCSS)
     .pipe(sourcemaps.init())
     .pipe(sass())
     .pipe(postcss([autoprefixer(), cssnano()]))
     .pipe(sourcemaps.write("."))
-    .pipe(dest("dist"));
+    .pipe(dest(destFolders.minified));
+}
+
+// Concatenates JS files to all.js
+function compileToReadableJS() {
+  return src([srcFiles.pathJS])
+    .pipe(concat("all.js"))
+    .pipe(dest(destFolders.readable));
 }
 
 // Concatenates and uglifies JS files to all.js
-function compileJS() {
-  return src([files.pathJS])
+function compileToMinifiedJS() {
+  return src([srcFiles.pathJS])
     .pipe(concat("all.js"))
     .pipe(uglify())
-    .pipe(dest("dist"));
+    .pipe(dest(destFolders.minified));
 }
 
 // Watch Pug, SCSS and JS files for changes, run compile tasks when they do
 function watchForChanges() {
   watch(
-    [files.pathPug, files.pathSCSS, files.pathJS],
-    series(parallel(compilePug, compileSCSS, compileJS))
+    [srcFiles.pathPug, srcFiles.pathSCSS, srcFiles.pathJS],
+    series(
+      parallel(compileToReadableHTML, compileToReadableCSS, compileToReadableJS)
+    )
   );
 }
 
+// Default command will run the functions to make redable versions and
+// then will watch files for changes and re-run the functions when needed
 exports.default = series(
-  parallel(compilePug, compileSCSS, compileJS, watchForChanges)
+  parallel(
+    compileToReadableHTML,
+    compileToReadableCSS,
+    compileToReadableJS,
+    watchForChanges
+  )
+);
+
+// Creates minified version of everything in destFolders.minified
+exports.minify = series(
+  parallel(compileToMinifiedHTML, compileToMinifiedCSS, compileToMinifiedJS)
 );
