@@ -28,7 +28,7 @@ function compileToReadableHTML() {
         pretty: true,
       })
     )
-    .pipe(dest("dist"));
+    .pipe(dest(destFolders.readable));
 }
 
 // Compiles index.pug into minified index.html
